@@ -11,6 +11,9 @@ edition = "2021"
 [dependencies]
 tempfile = "3.17"
 
+[dev-dependencies]
+similar-asserts = "1.7"
+
 [profile.release]
 strip = true
 opt-level = "z"

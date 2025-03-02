@@ -53,7 +53,6 @@ fn main() -> IoResult<()> {
     // Create temporary directory
     let tmp_dir = TempDir::new()?;
     let out_path = tmp_dir.path().join("croncls.out");
-    let err_path = tmp_dir.path().join("croncls.err");
     let trace_path = tmp_dir.path().join("croncls.trace");
 
     // Run the command and capture output
@@ -62,34 +61,33 @@ fn main() -> IoResult<()> {
     // Process the trace output
     let ps4 = std::env::var("PS4").unwrap_or_else(|_| "+ ".to_string());
     let trace_content = fs::read_to_string(&trace_path)?;
-    let err_content = trace_content
+    let std_err = trace_content
         .lines()
         .filter(|line| !line.starts_with(&ps4))
         .collect::<Vec<_>>()
         .join("\n");
 
-    // Write filtered error content
-    fs::write(&err_path, &err_content)?;
+    let status = output.status.code().unwrap_or(-1);
 
     // Check if there was an error or non-empty error output
-    if !output.status.success() || (check_stderr && !err_content.is_empty()) {
+    if status != 0 || (check_stderr && !std_err.is_empty()) {
         println!("# Failure or error output for the command:");
         println!("`{exec}`");
-        println!("\n## Resultcode: {}", output.status.code().unwrap_or(-1));
+        println!("\n## Resultcode: {status}");
         println!("\n## Err output:");
-        println!("```\n{err_content}\n```");
+        println!("```\n{std_err}\n```");
         println!("\n## Std output:");
 
-        let stdout_content = fs::read_to_string(&out_path)?;
-        println!("```\n{stdout_content}\n```");
+        let std_out = fs::read_to_string(&out_path)?;
+        println!("```\n{std_out}\n```");
 
-        if err_content.trim() != trace_content.trim() {
+        if std_err.trim() != trace_content.trim() {
             println!("\n## Trace output:");
             println!("```\n{trace_content}\n```");
         }
     }
 
-    Ok(())
+    process::exit(status);
 }
 
 fn print_usage() {
