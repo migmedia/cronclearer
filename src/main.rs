@@ -83,7 +83,7 @@ fn main() -> IoResult<()> {
         let stdout_content = fs::read_to_string(&out_path)?;
         println!("```\n{stdout_content}\n```");
 
-        if err_content != trace_content {
+        if err_content.trim() != trace_content.trim() {
             println!("\n## Trace output:");
             println!("```\n{trace_content}\n```");
         }
@@ -94,6 +94,9 @@ fn main() -> IoResult<()> {
 
 fn print_usage() {
     eprintln!("Usage: cronclearer [-ih] <command> [args...]");
+    eprintln!("\nOptions:");
+    eprintln!("    -h, --help        Show this usage information.");
+    eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
     process::exit(1);
 }
 

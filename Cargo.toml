@@ -1,9 +1,12 @@
 [package]
 name = "cronclearer"
 description = "Making cron job outputs clearer and easier to debug."
+categories = ["command-line-utilities"]
+keywords = ["cron", "cli", "utility"]
 authors = ["Micha Glave <coding@migmedia.de>"]
 version = "1.0.0"
-edition = "2024"
+license = "GPL-3.0-or-later"
+edition = "2021"
 
 [dependencies]
 tempfile = "3.17"
