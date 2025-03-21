@@ -1,8 +1,8 @@
 // (c) 2025 migmedia
 use std::{
     fmt::Display,
-    fs::{self, File},
-    io::Result as IoResult,
+    fs::File,
+    io::{Read, Result as IoResult},
     path::PathBuf,
     process::{self, Command, Output},
 };
@@ -20,9 +20,19 @@ impl Display for Exec {
     }
 }
 
+const BUFFER_CAPACITY: usize = 128 * 1024;
+
+fn read_to_string(path: &PathBuf) -> IoResult<String> {
+    let mut buffer = String::with_capacity(BUFFER_CAPACITY);
+    let mut handler = Read::take(File::open(path)?, BUFFER_CAPACITY as u64);
+    handler.read_to_string(&mut buffer)?;
+    Ok(buffer)
+}
+
 fn main() -> IoResult<()> {
     // Get command line arguments (skipping the program name)
     let mut check_stderr = true;
+    let mut check_stdout = false;
     let args: Vec<String> = {
         let args: Vec<String> = std::env::args().skip(1).collect();
         if let Some((prog_idx, _)) = args.iter().enumerate().find(|(_, p)| !p.starts_with("-")) {
@@ -30,6 +40,7 @@ fn main() -> IoResult<()> {
                 match arg.as_str() {
                     "-h" | "--help" => print_usage(),
                     "-i" | "--ignore-text" => check_stderr = false,
+                    "-s" | "--stdout" => check_stdout = true,
                     p => {
                         eprintln!("Unknown parameter: {p}");
                         process::exit(1);
@@ -60,7 +71,7 @@ fn main() -> IoResult<()> {
 
     // Process the trace output
     let ps4 = std::env::var("PS4").unwrap_or_else(|_| "+ ".to_string());
-    let trace_content = fs::read_to_string(&trace_path)?;
+    let trace_content = read_to_string(&trace_path)?;
     let std_err = trace_content
         .lines()
         .filter(|line| !line.starts_with(&ps4))
@@ -68,17 +79,19 @@ fn main() -> IoResult<()> {
         .join("\n");
 
     let status = output.status.code().unwrap_or(-1);
+    let std_out = read_to_string(&out_path)?;
 
     // Check if there was an error or non-empty error output
-    if status != 0 || (check_stderr && !std_err.is_empty()) {
+    if status != 0
+        || (check_stderr && !std_err.trim().is_empty())
+        || (check_stdout && !std_out.trim().is_empty())
+    {
         println!("# Failure or error output for the command:");
         println!("`{exec}`");
         println!("\n## Resultcode: {status}");
         println!("\n## Err output:");
         println!("```\n{std_err}\n```");
         println!("\n## Std output:");
-
-        let std_out = fs::read_to_string(&out_path)?;
         println!("```\n{std_out}\n```");
 
         if std_err.trim() != trace_content.trim() {
@@ -95,6 +108,7 @@ fn print_usage() {
     eprintln!("\nOptions:");
     eprintln!("    -h, --help        Show this usage information.");
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
+    eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
     process::exit(1);
 }
 
