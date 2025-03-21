@@ -27,3 +27,4 @@ Micha Glave
 * [cronic](https://habilis.net/cronic/): A bash-script by Chuck Houpt. I took the basic design idea
   and most implementation details from.
 * `2>/dev/null`: The evil cousin. Ignoring all failures.
+
