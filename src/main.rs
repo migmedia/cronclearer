@@ -20,6 +20,7 @@ impl Display for Exec {
     }
 }
 
+/// The buffer capacity for the sent data. 128kB
 const BUFFER_CAPACITY: usize = 128 * 1024;
 
 fn read_to_string(path: &PathBuf) -> IoResult<String> {
@@ -33,32 +34,30 @@ fn main() -> IoResult<()> {
     // Get command line arguments (skipping the program name)
     let mut check_stderr = true;
     let mut check_stdout = false;
-    let args: Vec<String> = {
-        let args: Vec<String> = std::env::args().skip(1).collect();
-        if let Some((prog_idx, _)) = args.iter().enumerate().find(|(_, p)| !p.starts_with("-")) {
-            for arg in &args[0..prog_idx] {
-                match arg.as_str() {
-                    "-h" | "--help" => print_usage(),
-                    "-i" | "--ignore-text" => check_stderr = false,
-                    "-s" | "--stdout" => check_stdout = true,
-                    p => {
-                        eprintln!("Unknown parameter: {p}");
-                        process::exit(1);
-                    }
-                }
-            }
-            args[prog_idx..].to_vec()
-        } else {
-            args
-        }
-    };
 
-    if args.is_empty() {
+    let (flags, cmd): (Vec<_>, Vec<_>) = std::env::args().skip(1).partition(|s| s.starts_with("-"));
+    for flag in flags {
+        match flag.as_str() {
+            "-V" | "--version" => {
+                eprintln!("cronclearer {}", env!("CARGO_PKG_VERSION"));
+                process::exit(1);
+            }
+            "-h" | "--help" => print_usage(),
+            "-i" | "--ignore-text" => check_stderr = false,
+            "-s" | "--stdout" => check_stdout = true,
+            p => {
+                eprintln!("Unknown parameter: {p}");
+                process::exit(1);
+            }
+        }
+    }
+
+    if cmd.is_empty() {
         print_usage();
     }
     let exec = Exec {
-        program: args[0].clone(),
-        params: args[1..].to_vec(),
+        program: cmd[0].clone(),
+        params: cmd[1..].to_vec(),
     };
 
     // Create temporary directory
@@ -104,11 +103,12 @@ fn main() -> IoResult<()> {
 }
 
 fn print_usage() {
-    eprintln!("Usage: cronclearer [-ih] <command> [args...]");
+    eprintln!("Usage: cronclearer [-ishV] <command> [args...]");
     eprintln!("\nOptions:");
     eprintln!("    -h, --help        Show this usage information.");
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
     eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
+    eprintln!("    -V, --version     Show the version of cronclearer.");
     process::exit(1);
 }
 
