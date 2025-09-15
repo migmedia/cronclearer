@@ -1,7 +1,7 @@
 // (c) 2025 migmedia
 use std::{
     fmt::Display,
-    fs::File,
+    fs::{self, File},
     io::{Read, Result as IoResult},
     path::PathBuf,
     process::{self, Command, Output},
@@ -98,7 +98,9 @@ fn main() -> IoResult<()> {
             println!("```\n{trace_content}\n```");
         }
     }
-
+    fs::remove_file(&out_path)?;
+    fs::remove_file(&trace_path)?;
+    fs::remove_dir_all(&tmp_dir.path())?;
     process::exit(status);
 }
 
