@@ -20,7 +20,29 @@ impl Display for Exec {
     }
 }
 
-/// The buffer capacity for the sent data. 128kB
+impl Exec {
+    /// Create a new `Exec` instance.
+    fn new(program: impl Into<String>, params: &[String]) -> Self {
+        Exec {
+            program: program.into(),
+            params: params.into(),
+        }
+    }
+
+    /// Execute the given command and capture its output.
+    fn execute(&self, stdout: &PathBuf, stderr: &PathBuf) -> IoResult<Output> {
+        let mut command = Command::new(&self.program);
+        command.args(&self.params);
+
+        // Redirect stdout and stderr to files
+        let stdout_file = File::create(stdout)?;
+        let stderr_file = File::create(stderr)?;
+
+        command.stdout(stdout_file).stderr(stderr_file).output()
+    }
+}
+
+/// 128kB is the maximum length of output sent via email .
 const BUFFER_CAPACITY: usize = 128 * 1024;
 
 fn read_to_string(path: &PathBuf) -> IoResult<String> {
@@ -54,11 +76,9 @@ fn main() -> IoResult<()> {
 
     if cmd.is_empty() {
         print_usage();
+        // exit
     }
-    let exec = Exec {
-        program: cmd[0].clone(),
-        params: cmd[1..].to_vec(),
-    };
+    let subprocess = Exec::new(&cmd[0], &cmd[1..]);
 
     // Create temporary directory
     let tmp_dir = TempDir::new()?;
@@ -66,41 +86,49 @@ fn main() -> IoResult<()> {
     let trace_path = tmp_dir.path().join("croncls.trace");
 
     // Run the command and capture output
-    let output = execute(&exec, &out_path, &trace_path)?;
+    let output = subprocess.execute(&out_path, &trace_path)?;
 
     // Process the trace output
-    let ps4 = std::env::var("PS4").unwrap_or_else(|_| "+ ".to_string());
-    let trace_content = read_to_string(&trace_path)?;
-    let std_err = trace_content
+    let ps4 = std::env::var("PS4").unwrap_or_else(|_| String::from("+ "));
+    let trace_buffer = read_to_string(&trace_path)?;
+    let std_err_buffer = trace_buffer
         .lines()
         .filter(|line| !line.starts_with(&ps4))
         .collect::<Vec<_>>()
         .join("\n");
 
     let status = output.status.code().unwrap_or(-1);
-    let std_out = read_to_string(&out_path)?;
+    let std_out_buffer = read_to_string(&out_path)?;
 
     // Check if there was an error or non-empty error output
     if status != 0
-        || (check_stderr && !std_err.trim().is_empty())
-        || (check_stdout && !std_out.trim().is_empty())
+        || (check_stderr && !std_err_buffer.trim().is_empty())
+        || (check_stdout && !std_out_buffer.trim().is_empty())
     {
         println!("# Failure or error output for the command:");
-        println!("`{exec}`");
+        println!("`{subprocess}`");
         println!("\n## Resultcode: {status}");
         println!("\n## Err output:");
-        println!("```\n{std_err}\n```");
+        println!("```\n{std_err_buffer}\n```");
+        if std_err_buffer.len() == BUFFER_CAPACITY {
+            println!("!!! err-out truncated !!!");
+        }
         println!("\n## Std output:");
-        println!("```\n{std_out}\n```");
+        println!("```\n{std_out_buffer}\n```");
+        if std_out_buffer.len() == BUFFER_CAPACITY {
+            println!("!!! std-out truncated !!!");
+        }
 
-        if std_err.trim() != trace_content.trim() {
+        if std_err_buffer.trim() != trace_buffer.trim() {
             println!("\n## Trace output:");
-            println!("```\n{trace_content}\n```");
+            println!("```\n{trace_buffer}\n```");
         }
     }
+    // Cleanup after use.
     fs::remove_file(&out_path)?;
     fs::remove_file(&trace_path)?;
     fs::remove_dir_all(&tmp_dir.path())?;
+
     process::exit(status);
 }
 
@@ -112,16 +140,4 @@ fn print_usage() {
     eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
     eprintln!("    -V, --version     Show the version of cronclearer.");
     process::exit(1);
-}
-
-/// Execute the given command and capture its output.
-fn execute(exec: &Exec, stdout: &PathBuf, stderr: &PathBuf) -> IoResult<Output> {
-    let mut command = Command::new(&exec.program);
-    command.args(&exec.params);
-
-    // Redirect stdout and stderr to files
-    let stdout_file = File::create(stdout)?;
-    let stderr_file = File::create(stderr)?;
-
-    command.stdout(stdout_file).stderr(stderr_file).output()
 }
