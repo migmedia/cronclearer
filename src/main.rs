@@ -23,7 +23,7 @@ impl Display for Exec {
 impl Exec {
     /// Create a new `Exec` instance.
     fn new(program: impl Into<String>, params: &[String]) -> Self {
-        Exec {
+        Self {
             program: program.into(),
             params: params.into(),
         }
@@ -107,7 +107,7 @@ fn main() -> IoResult<()> {
     {
         println!("# Failure or error output for the command:");
         println!("`{subprocess}`");
-        println!("\n## Resultcode: {status}");
+        println!("\n## Exit-code: {status}");
         println!("\n## Err output:");
         println!("```\n{std_err_buffer}\n```");
         if std_err_buffer.len() == BUFFER_CAPACITY {
@@ -127,13 +127,13 @@ fn main() -> IoResult<()> {
     // Cleanup after use.
     fs::remove_file(&out_path)?;
     fs::remove_file(&trace_path)?;
-    fs::remove_dir_all(&tmp_dir.path())?;
+    fs::remove_dir_all(tmp_dir.path())?;
 
     process::exit(status);
 }
 
 fn print_usage() {
-    eprintln!("Usage: cronclearer [-ishV] <command> [args...]");
+    eprintln!("Usage: cronclearer [-i -s -h -V] <command> [args...]");
     eprintln!("\nOptions:");
     eprintln!("    -h, --help        Show this usage information.");
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");

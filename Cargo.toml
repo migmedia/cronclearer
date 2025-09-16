@@ -7,7 +7,7 @@ authors = ["Micha Glave <coding@migmedia.de>"]
 homepage = "https://github.com/migmedia/cronclearer"
 version = "1.0.2"
 license = "GPL-3.0-or-later"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 tempfile = "3.22"
