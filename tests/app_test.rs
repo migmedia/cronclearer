@@ -31,7 +31,7 @@ fn just_stderr() {
         r#"# Failure or error output for the command:
 `./tests/just_stderr.sh `
 
-## Resultcode: 0
+## Exit-code: 0
 
 ## Err output:
 ```
@@ -63,7 +63,7 @@ fn return_one() {
         r#"# Failure or error output for the command:
 `./tests/return_one.sh `
 
-## Resultcode: 1
+## Exit-code: 1
 
 ## Err output:
 ```
@@ -95,7 +95,7 @@ fn return_two_ignore_text() {
         r#"# Failure or error output for the command:
 `./tests/return_one.sh `
 
-## Resultcode: 1
+## Exit-code: 1
 
 ## Err output:
 ```
