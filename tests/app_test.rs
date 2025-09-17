@@ -25,11 +25,11 @@ fn to_string(bytes: &[u8]) -> String {
 
 #[test]
 fn just_stderr() {
-    let output = exec(&["./tests/just_stderr.sh"]);
+    let output = exec(&["./tests/just_stderr.sh", "-x", "-V"]);
     assert_eq!(
         to_string(&output.stdout),
         r#"# Failure or error output for the command:
-`./tests/just_stderr.sh `
+`./tests/just_stderr.sh -x -V`
 
 ## Exit-code: 0
 

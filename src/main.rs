@@ -1,12 +1,13 @@
 // (c) 2025 migmedia
 use std::{
+    env::temp_dir,
     fmt::Display,
     fs::{self, File},
     io::{Read, Result as IoResult},
     path::PathBuf,
     process::{self, Command, Output},
+    time::{SystemTime, UNIX_EPOCH},
 };
-use tempfile::TempDir;
 
 /// An executable command with its parameters.
 struct Exec {
@@ -52,19 +53,41 @@ fn read_to_string(path: &PathBuf) -> IoResult<String> {
     Ok(buffer)
 }
 
+fn mk_tempdir(cmd: &str, rand: u32) -> IoResult<PathBuf> {
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        % 0x100000000;
+    let cmd = cmd
+        .replace(
+            [' ', '<', '>', ':', '\\', '|', '?', '*', '=', '"', '\''],
+            "",
+        )
+        .replace(['/', '.'], "_");
+    let tempdir = temp_dir().join(format!("{cmd}-{time:x}{rand:x}"));
+
+    fs::create_dir_all(&tempdir)?;
+    Ok(tempdir)
+}
+
 fn main() -> IoResult<()> {
     // Get command line arguments (skipping the program name)
     let mut check_stderr = true;
     let mut check_stdout = false;
 
-    let (flags, cmd): (Vec<_>, Vec<_>) = std::env::args().skip(1).partition(|s| s.starts_with("-"));
-    for flag in flags {
-        match flag.as_str() {
+    let mut skip = 1;
+    for parameter in std::env::args().skip(1).take_while(|s| s.starts_with("-")) {
+        skip += 1;
+        match parameter.as_str() {
             "-V" | "--version" => {
                 eprintln!("cronclearer {}", env!("CARGO_PKG_VERSION"));
                 process::exit(1);
             }
-            "-h" | "--help" => print_usage(),
+            "-h" | "--help" => {
+                print_usage();
+                process::exit(1);
+            }
             "-i" | "--ignore-text" => check_stderr = false,
             "-s" | "--stdout" => check_stdout = true,
             p => {
@@ -73,17 +96,20 @@ fn main() -> IoResult<()> {
             }
         }
     }
-
-    if cmd.is_empty() {
+    let cmd = std::env::args().skip(skip).collect::<Vec<String>>();
+    let Some((cmd, param)) = cmd.split_first() else {
         print_usage();
-        // exit
-    }
-    let subprocess = Exec::new(&cmd[0], &cmd[1..]);
+        process::exit(1);
+    };
+    let subprocess = Exec::new(cmd, param);
 
+    let mut buf = [0u8; 4];
+    getrandom::fill(&mut buf).expect("Not enough entropy for random-generator");
+    let rand = u32::from_be_bytes(buf);
     // Create temporary directory
-    let tmp_dir = TempDir::new()?;
-    let out_path = tmp_dir.path().join("croncls.out");
-    let trace_path = tmp_dir.path().join("croncls.trace");
+    let tmp_dir = mk_tempdir(cmd, rand)?;
+    let out_path = tmp_dir.join("croncls.out");
+    let trace_path = tmp_dir.join("croncls.trace");
 
     // Run the command and capture output
     let output = subprocess.execute(&out_path, &trace_path)?;
@@ -127,7 +153,7 @@ fn main() -> IoResult<()> {
     // Cleanup after use.
     fs::remove_file(&out_path)?;
     fs::remove_file(&trace_path)?;
-    fs::remove_dir_all(tmp_dir.path())?;
+    fs::remove_dir_all(tmp_dir)?;
 
     process::exit(status);
 }
@@ -139,5 +165,4 @@ fn print_usage() {
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
     eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
     eprintln!("    -V, --version     Show the version of cronclearer.");
-    process::exit(1);
 }

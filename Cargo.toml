@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-tempfile = "3.22"
+getrandom = "0.3"
 
 [dev-dependencies]
 similar-asserts = "1.7"
