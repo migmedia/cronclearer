@@ -17,6 +17,7 @@ logging and output capture.
 
    - `-h` or `--help`: Shows usage information
    - `-i` or `--ignore-text`: Ignores stderr when exit-code is zero.
+   - `-l` or `--log`: Don't remove log files. Leaves log files for an audit in the temporary directory.
    - `-s` or `--stdout`: React on exit-code, or on text on stdout.
    - `-V` or `--version`: Show the version of cronclearer.
 

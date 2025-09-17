@@ -54,11 +54,13 @@ fn read_to_string(path: &PathBuf) -> IoResult<String> {
 
 fn mk_tempdir(cmd: &str, rand: u32) -> IoResult<PathBuf> {
     let cmd = cmd
+        .rsplit_once('/')
+        .map(|(_, cmd_part)| cmd_part)
+        .unwrap_or(cmd)
         .replace(
             [' ', '<', '>', ':', '\\', '|', '?', '*', '=', '"', '\''],
             "",
-        )
-        .replace(['/', '.'], "_");
+        );
     let tempdir = temp_dir().join(format!("{cmd}-{rand:x}"));
     fs::create_dir_all(&tempdir)?;
     Ok(tempdir)
@@ -157,11 +159,11 @@ fn main() -> IoResult<()> {
 }
 
 fn print_usage() {
-    eprintln!("Usage: cronclearer [-i -s -h -V] <command> [args...]");
+    eprintln!("Usage: cronclearer [-h -i -l -s -V] <command> [args...]");
     eprintln!("\nOptions:");
     eprintln!("    -h, --help        Show this usage information.");
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
-    eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
     eprintln!("    -l, --log         Don't remove log files.");
+    eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
     eprintln!("    -V, --version     Show the version of cronclearer.");
 }
