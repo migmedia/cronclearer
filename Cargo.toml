@@ -5,7 +5,7 @@ categories = ["command-line-utilities"]
 keywords = ["cron", "cli", "utility"]
 authors = ["Micha Glave <coding@migmedia.de>"]
 homepage = "https://github.com/migmedia/cronclearer"
-version = "1.0.2"
+version = "1.0.3"
 license = "GPL-3.0-or-later"
 edition = "2024"
 

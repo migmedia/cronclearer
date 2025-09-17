@@ -6,7 +6,6 @@ use std::{
     io::{Read, Result as IoResult},
     path::PathBuf,
     process::{self, Command, Output},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// An executable command with its parameters.
@@ -54,19 +53,13 @@ fn read_to_string(path: &PathBuf) -> IoResult<String> {
 }
 
 fn mk_tempdir(cmd: &str, rand: u32) -> IoResult<PathBuf> {
-    let time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
-        % 0x100000000;
     let cmd = cmd
         .replace(
             [' ', '<', '>', ':', '\\', '|', '?', '*', '=', '"', '\''],
             "",
         )
         .replace(['/', '.'], "_");
-    let tempdir = temp_dir().join(format!("{cmd}-{time:x}{rand:x}"));
-
+    let tempdir = temp_dir().join(format!("{cmd}-{rand:x}"));
     fs::create_dir_all(&tempdir)?;
     Ok(tempdir)
 }
@@ -75,6 +68,7 @@ fn main() -> IoResult<()> {
     // Get command line arguments (skipping the program name)
     let mut check_stderr = true;
     let mut check_stdout = false;
+    let mut remove_logs = true;
 
     let mut skip = 1;
     for parameter in std::env::args().skip(1).take_while(|s| s.starts_with("-")) {
@@ -90,6 +84,9 @@ fn main() -> IoResult<()> {
             }
             "-i" | "--ignore-text" => check_stderr = false,
             "-s" | "--stdout" => check_stdout = true,
+            "-l" | "--log" => {
+                remove_logs = false;
+            }
             p => {
                 eprintln!("Unknown parameter: {p}");
                 process::exit(1);
@@ -151,10 +148,11 @@ fn main() -> IoResult<()> {
         }
     }
     // Cleanup after use.
-    fs::remove_file(&out_path)?;
-    fs::remove_file(&trace_path)?;
-    fs::remove_dir_all(tmp_dir)?;
-
+    if remove_logs {
+        fs::remove_file(&out_path)?;
+        fs::remove_file(&trace_path)?;
+        fs::remove_dir_all(tmp_dir)?;
+    }
     process::exit(status);
 }
 
@@ -164,5 +162,6 @@ fn print_usage() {
     eprintln!("    -h, --help        Show this usage information.");
     eprintln!("    -i, --ignore-text React only on exit-code, not on text on stderr.");
     eprintln!("    -s, --stdout      React on exit-code, or on text on stdout.");
+    eprintln!("    -l, --log         Don't remove log files.");
     eprintln!("    -V, --version     Show the version of cronclearer.");
 }
